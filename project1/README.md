@@ -61,7 +61,7 @@ $p = \sigma(\theta x + b)$
 where $\theta$ and $b$ refers to our model parameters, $x$ is our feature vector and $\sigma$ is the [sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function) function.
 
 
-We will train out model to perform classification using the binary cross entropy loss with L2 regulazarization.
+We will train our model to perform classification using the binary cross entropy loss with L2 regulazarization.
 
 $L(y, p) = - ( y log(p)) + (1-y)log( 1-p)) + \frac{\lambda}{2} ||\theta||^2$
 

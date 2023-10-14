@@ -4,6 +4,12 @@ import random
 import os, subprocess
 from csv import DictWriter
 import multiprocessing
+from vectorizer import Vectorizer
+from logistic_regression import LogisticRegression
+from main import load_data
+from sklearn.metrics import roc_auc_score
+
+import numpy as np
 
 def add_main_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
@@ -39,16 +45,34 @@ def get_experiment_list(config: dict) -> (list[dict]):
     '''
     Parses an experiment config, and creates jobs. For flags that are expected to be a single item, but the config contains a list, this will return one job for each item in the list.
     :config - experiment_config
+    {'learning_rate': [0.0001], 'batch_size': [256], 'num_epochs': [10], 'regularization_lambda': [0]}
 
     returns: jobs - a list of dicts, each of which encapsulates one job.
         *Example: {learning_rate: 0.001 , batch_size: 16 ...}
     '''
+
     jobs = [{}]
 
-    # TODO: Go through the tree of possible jobs and enumerate into a list of jobs
-    raise NotImplementedError("Not implemented yet")
+    for key, values in config.items():
+        # If the value is a single item list, just add it to each job
+        if len(values) == 1:
+            for job in jobs:
+                job[key] = values[0]
+        else:
+            # Otherwise, make new jobs for each value
+            new_jobs = []
+            for value in values:
+                for existing_job in jobs:
+                    new_job = existing_job.copy() # Make a copy of the existing job
+                    new_job[key] = value          # Set the new parameter value
+                    new_jobs.append(new_job)      # Add the new job to our list of new jobs
+            jobs = new_jobs                       # Replace the existing jobs with the new ones
 
     return jobs
+
+    # TODO: Go through the tree of possible jobs and enumerate into a list of jobs
+    # raise NotImplementedError("Not implemented yet")
+    # return jobs
 
 def worker(args: argparse.Namespace, job_queue: multiprocessing.Queue, done_queue: multiprocessing.Queue):
     '''
@@ -78,12 +102,33 @@ def launch_experiment(args: argparse.Namespace, experiment_config: dict) ->  dic
         os.makedirs(args.log_dir)
 
     # TODO: Launch the experiment
+    # The command to run the script
+    lr, lamb, batch, epo = experiment_config['learning_rate'], experiment_config['regularization_lambda'], experiment_config['batch_size'], experiment_config['num_epochs']
+    results_path = f'logs/results_{lr}_{lamb}_{batch}_{epo}.json'
+    
+    #command = f'python main.py --learning_rate {lr} --regularization_lambda {lamb} --batch_size {batch} --num_epochs {epo} --results_path {results_path}'
+    command = ['python', 'main.py', '--learning_rate', str(lr), '--regularization_lambda', str(lamb), '--batch_size', str(batch), '--num_epochs', str(epo), '--results_path', results_path]
+
+    # Run the command and capture the output
+    results = subprocess.run(command, stdout=subprocess.PIPE)
+
+    # Print the output
+    #print(results.stdout.decode('utf-8'))
 
     # TODO: Parse the results from the experiment and return them as a dict
+    with open(results_path, 'r') as file:
+        results = json.load(file)
+    
+    print(results)
+    experiment_config['train_auc'] = results['train_auc']
+    experiment_config['val_auc'] = results['val_auc']
+    experiment_config['train_loss'] = results['train_losses'][-1]
+    experiment_config['val_loss'] = results['val_losses'][-1]
 
-    raise NotImplementedError("Not implemented yet")
+    results = experiment_config
 
-    results = {}
+    #raise NotImplementedError("Not implemented yet")
+    #results = {}
 
     return results
 
@@ -122,6 +167,8 @@ def main(args: argparse.Namespace) -> dict:
         grid_search_results.append(done_queue.get())
 
     keys = grid_search_results[0].keys()
+
+    print(grid_search_results)
 
     print("Saving results to {}".format(args.grid_search_results_path))
 

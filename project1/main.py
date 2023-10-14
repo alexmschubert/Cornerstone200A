@@ -9,10 +9,15 @@ from sklearn.metrics import roc_auc_score
 import numpy as np
 import random
 
+#Terminal commands
+#Q1
+#python main.py --learning_rate 1e-4 --regularization_lambda 1 --num_epochs 200 --results_path results_q1.json
+
 def add_main_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--plco_data_path",
-        default="/wynton/protected/project/cph/cornerstone/plco/Lung/Lung Person (image only)/lung_prsn.csv",
+        #default="/wynton/protected/project/cph/cornerstone/plco/Lung/Lung Person (image only)/lung_prsn.csv",
+        default="data/lung_prsn_dupli.csv",
         help="Location of PLCO csv",
     )
 
@@ -76,9 +81,8 @@ def main(args: argparse.Namespace) -> dict:
     print("Loading data from {}".format(args.plco_data_path))
     train, val, test = load_data(args)
 
-
     # TODO: Define someway to defined what features your model should use
-    feature_config = None
+    feature_config = {'age':'numerical'}
 
     print("Initializing vectorizer and extracting features")
     # TODO: Implement a vectorizer to convert the questionare features into a feature vector
@@ -101,7 +105,7 @@ def main(args: argparse.Namespace) -> dict:
     # TODO: Initialize and train a logistic regression model
     model = LogisticRegression(num_epochs=args.num_epochs, learning_rate=args.learning_rate, batch_size=args.batch_size, regularization_lambda=args.regularization_lambda, verbose=True)
 
-    model.fit(train_X, train_Y)
+    train_losses, val_losses = model.fit(train_X, train_Y, val_X, val_Y)
 
     print("Evaluating model")
 
@@ -109,11 +113,16 @@ def main(args: argparse.Namespace) -> dict:
     pred_val_Y = model.predict_proba(val_X)#[:,-1]
 
     results = {
+        "train_losses": train_losses,
+        "val_losses": val_losses,
         "train_auc": roc_auc_score(train_Y, pred_train_Y),
         "val_auc": roc_auc_score(val_Y, pred_val_Y)
     }
 
-    print(results)
+    print({
+        "train_auc": roc_auc_score(train_Y, pred_train_Y),
+        "val_auc": roc_auc_score(val_Y, pred_val_Y)
+    })
 
     print("Saving results to {}".format(args.results_path))
 
